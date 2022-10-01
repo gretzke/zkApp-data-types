@@ -8,16 +8,9 @@ import {
   Permissions,
 } from 'snarkyjs';
 
-/**
- * Basic Example
- * See https://docs.minaprotocol.com/zkapps for more info.
- *
- * The Add contract initializes the state variable 'num' to be a Field(1) value by default when deployed.
- * When the 'update' method is called, the Add contract adds Field(2) to its 'num' contract state.
- * 
- * This file is safe to delete and replace with your own contract.
- */
-export class Add extends SmartContract {
+import { CircuitDynamicArray } from './dynamicArray';
+
+export class DataTypes extends SmartContract {
   @state(Field) num = State<Field>();
 
   deploy(args: DeployArgs) {
@@ -28,11 +21,19 @@ export class Add extends SmartContract {
     });
   }
 
-  @method init() {
-    this.num.set(Field(1));
+  @method dynamicArrayGet(dynamicArr: CircuitDynamicArray, index: Field) {
+    dynamicArr.get(index).assertEquals(Field(1));
   }
 
   @method update() {
+    // test init state
+    let dynamicArr = CircuitDynamicArray.fromFields([
+      Field(0),
+      Field(2),
+      Field(1),
+    ]);
+    this.num.get().assertEquals(dynamicArr.get(Field(2)));
+    //
     const currentState = this.num.get();
     this.num.assertEquals(currentState); // precondition that links this.num.get() to the actual on-chain state
     const newState = currentState.add(2);

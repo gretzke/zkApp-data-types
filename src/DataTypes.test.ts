@@ -1,4 +1,4 @@
-import { Add } from './Add';
+import { DataTypes } from './DataTypes';
 import {
   isReady,
   shutdown,
@@ -8,13 +8,9 @@ import {
   PublicKey,
   AccountUpdate,
 } from 'snarkyjs';
+import { CircuitDynamicArray } from './dynamicArray';
 
-/*
- * This file specifies how to test the `Add` example smart contract. It is safe to delete this file and replace
- * with your own tests.
- *
- * See https://docs.minaprotocol.com/zkapps for more info.
- */
+const prove = true;
 
 function createLocalBlockchain() {
   const Local = Mina.LocalBlockchain();
@@ -23,20 +19,19 @@ function createLocalBlockchain() {
 }
 
 async function localDeploy(
-  zkAppInstance: Add,
+  zkAppInstance: DataTypes,
   zkAppPrivatekey: PrivateKey,
   deployerAccount: PrivateKey
 ) {
   const txn = await Mina.transaction(deployerAccount, () => {
     AccountUpdate.fundNewAccount(deployerAccount);
     zkAppInstance.deploy({ zkappKey: zkAppPrivatekey });
-    zkAppInstance.init();
     zkAppInstance.sign(zkAppPrivatekey);
   });
   await txn.send().wait();
 }
 
-describe('Add', () => {
+describe('DataTypes', () => {
   let deployerAccount: PrivateKey,
     zkAppAddress: PublicKey,
     zkAppPrivateKey: PrivateKey;
@@ -55,23 +50,24 @@ describe('Add', () => {
     setTimeout(shutdown, 0);
   });
 
-  it('generates and deploys the `Add` smart contract', async () => {
-    const zkAppInstance = new Add(zkAppAddress);
+  it('should be able to get an item from the dynamic array', async () => {
+    const zkAppInstance = new DataTypes(zkAppAddress);
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
-    const num = zkAppInstance.num.get();
-    expect(num).toEqual(Field.one);
-  });
 
-  it('correctly updates the num state on the `Add` smart contract', async () => {
-    const zkAppInstance = new Add(zkAppAddress);
-    await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
+    const values = [0, 2, 1].map((x) => Field(x));
     const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.update();
-      zkAppInstance.sign(zkAppPrivateKey);
+      zkAppInstance.dynamicArrayGet(
+        CircuitDynamicArray.fromFields(values),
+        Field(2)
+      );
+      if (!prove) zkAppInstance.sign(zkAppPrivateKey);
     });
-    await txn.send().wait();
 
-    const updatedNum = zkAppInstance.num.get();
-    expect(updatedNum).toEqual(Field(3));
+    if (prove) {
+      await DataTypes.compile();
+      await txn.prove();
+    }
+
+    await txn.send().wait();
   });
 });
