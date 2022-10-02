@@ -9,12 +9,15 @@ class CircuitDynamicArray extends CircuitValue {
   @arrayProp(Field, MAX_LEN) public values: Field[];
 
   static fromFields(fields: Field[]): CircuitDynamicArray {
-    return new CircuitDynamicArray(fields);
+    const arr = new CircuitDynamicArray();
+    for (let i = 0; i < fields.length; i++) {
+      arr.push(fields[i]);
+    }
+    return arr;
   }
 
-  private constructor(values: Field[]) {
-    const length = Field(values.length);
-    super(fillWithNull([length, ...values], CircuitDynamicArray.maxLength));
+  private constructor() {
+    super(fillWithNull([], CircuitDynamicArray.maxLength));
   }
 
   public length(): Field {
