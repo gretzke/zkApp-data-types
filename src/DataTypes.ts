@@ -1,18 +1,14 @@
 import {
-  Field,
-  SmartContract,
-  state,
-  State,
-  method,
   DeployArgs,
+  Field,
+  method,
   Permissions,
+  SmartContract,
 } from 'snarkyjs';
 
 import { CircuitDynamicArray } from './dynamicArray';
 
 export class DataTypes extends SmartContract {
-  @state(Field) num = State<Field>();
-
   deploy(args: DeployArgs) {
     super.deploy(args);
     this.setPermissions({
@@ -21,23 +17,27 @@ export class DataTypes extends SmartContract {
     });
   }
 
-  @method dynamicArrayGet(dynamicArr: CircuitDynamicArray, index: Field) {
-    dynamicArr.get(index).assertEquals(Field(1));
+  @method get(arr: CircuitDynamicArray, index: Field, value: Field) {
+    arr.get(index).assertEquals(value);
   }
 
-  @method update() {
-    // test init state
-    let dynamicArr = CircuitDynamicArray.fromFields([
-      Field(0),
-      Field(2),
-      Field(1),
-    ]);
-    this.num.get().assertEquals(dynamicArr.get(Field(2)));
-    //
-    const currentState = this.num.get();
-    this.num.assertEquals(currentState); // precondition that links this.num.get() to the actual on-chain state
-    const newState = currentState.add(2);
-    newState.assertEquals(currentState.add(2));
-    this.num.set(newState);
+  @method set(
+    arr: CircuitDynamicArray,
+    index: Field,
+    value: Field,
+    newHash: Field
+  ) {
+    arr.set(index, value);
+    arr.hash().assertEquals(newHash);
+  }
+
+  @method push(arr: CircuitDynamicArray, value: Field, newHash: Field) {
+    arr.push(value);
+    arr.hash().assertEquals(newHash);
+  }
+
+  @method pop(arr: CircuitDynamicArray, newHash: Field) {
+    arr.pop();
+    arr.hash().assertEquals(newHash);
   }
 }
