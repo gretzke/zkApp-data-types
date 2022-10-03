@@ -9,7 +9,7 @@ import {
 
 export { CircuitDynamicArray };
 
-const MAX_LEN = 2 ** 8;
+const MAX_LEN = 2 ** 3;
 
 class CircuitDynamicArray extends CircuitValue {
   static maxLength = MAX_LEN;
@@ -25,14 +25,12 @@ class CircuitDynamicArray extends CircuitValue {
 
   static empty(length: Field): CircuitDynamicArray {
     const arr = new CircuitDynamicArray();
-    length.assertLte(arr.maxLength());
     arr.values[0] = length;
     return arr;
   }
 
   private constructor() {
     super(fillWithNull([], CircuitDynamicArray.maxLength));
-    this.length().assertEquals(Field.zero);
   }
 
   public length(): Field {
@@ -50,13 +48,11 @@ class CircuitDynamicArray extends CircuitValue {
 
   public set(index: Field, value: Field): void {
     let mask = this.indexMask(index);
-    const lengthBefore = this.length();
     for (let i = 1; i < CircuitDynamicArray.maxLength; i++) {
       this.values[i] = this.values[i]
         .mul(Field.one.sub(mask[i]))
         .add(value.mul(mask[i]));
     }
-    lengthBefore.assertEquals(this.length());
   }
 
   public push(value: Field): void {
@@ -65,8 +61,6 @@ class CircuitDynamicArray extends CircuitValue {
   }
 
   public pop(n: Field): void {
-    n.assertLte(this.length());
-
     const mask = [];
     for (let i = 0; i < CircuitDynamicArray.maxLength; i++) {
       mask[i] = Field(i).lte(this.length().sub(n)).toField();
@@ -80,8 +74,6 @@ class CircuitDynamicArray extends CircuitValue {
   }
 
   public concat(other: CircuitDynamicArray): CircuitDynamicArray {
-    const newLength = this.length().add(other.length());
-    Field(this.maxLength()).assertGte(newLength);
     const newArr = other.copy();
     newArr.shiftRight(this.length());
     for (let i = 1; i < this.maxLength(); i++) {
@@ -93,27 +85,23 @@ class CircuitDynamicArray extends CircuitValue {
   public copy(): CircuitDynamicArray {
     const newArr = new CircuitDynamicArray();
     newArr.values = this.values.slice();
-    this.length().assertEquals(newArr.length());
     return newArr;
   }
 
   public slice(start: Field, end: Field): CircuitDynamicArray {
     const newArr = new CircuitDynamicArray();
     newArr.values = this.values.slice();
-    this.length().assertEquals(newArr.length());
     newArr.shiftLeft(start);
     newArr.pop(newArr.length().sub(end.sub(start)));
     return newArr;
   }
 
   public insert(index: Field, value: Field): void {
-    const lengthBefore = this.length();
     const arr1 = this.slice(Field.zero, index);
-    const arr2 = this.slice(index, lengthBefore);
+    const arr2 = this.slice(index, this.length());
     arr2.shiftRight(Field.one);
     arr2.set(Field.zero, value);
     this.values = arr1.concat(arr2).values;
-    this.length().assertEquals(lengthBefore.add(1));
   }
 
   public assertExists(value: Field) {
@@ -159,7 +147,6 @@ class CircuitDynamicArray extends CircuitValue {
   }
 
   public shiftRight(n: Field): void {
-    this.length().add(n).assertLte(this.maxLength());
     const nullArray = CircuitDynamicArray.empty(n);
     this.incrementLength(n);
 
@@ -204,10 +191,12 @@ class CircuitDynamicArray extends CircuitValue {
   }
 
   private incrementLength(n: Field): void {
+    this.length().add(n).assertLte(this.maxLength());
     this.values[0] = this.length().add(n);
   }
 
   private decrementLength(n: Field): void {
+    n.assertLte(this.length());
     this.values[0] = this.length().sub(n);
   }
 
