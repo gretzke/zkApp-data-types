@@ -36,8 +36,8 @@ export class DataTypes extends SmartContract {
     arr.hash().assertEquals(newHash);
   }
 
-  @method pop(arr: CircuitDynamicArray, newHash: Field) {
-    arr.pop();
+  @method pop(arr: CircuitDynamicArray, amount: Field, newHash: Field) {
+    arr.pop(amount);
     arr.hash().assertEquals(newHash);
   }
 
@@ -48,5 +48,20 @@ export class DataTypes extends SmartContract {
   ) {
     const newArr = arr.concat(other);
     newArr.hash().assertEquals(newHash);
+    newArr.insert(Field(0), Field(9));
+  }
+
+  @method insert(
+    arr: CircuitDynamicArray,
+    index: Field,
+    value: Field,
+    newHash: Field
+  ) {
+    arr.insert(index, value);
+    arr.hash().assertEquals(newHash);
+  }
+
+  @method exists(arr: CircuitDynamicArray, value: Field) {
+    arr.assertExists(value);
   }
 }
