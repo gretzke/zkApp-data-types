@@ -40,4 +40,13 @@ export class DataTypes extends SmartContract {
     arr.pop();
     arr.hash().assertEquals(newHash);
   }
+
+  @method concat(
+    arr: CircuitDynamicArray,
+    other: CircuitDynamicArray,
+    newHash: Field
+  ) {
+    const newArr = arr.concat(other);
+    newArr.hash().assertEquals(newHash);
+  }
 }

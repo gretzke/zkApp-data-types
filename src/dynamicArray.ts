@@ -1,8 +1,15 @@
-import { arrayProp, CircuitValue, Field, Poseidon } from 'snarkyjs';
+import {
+  arrayProp,
+  Bool,
+  Circuit,
+  CircuitValue,
+  Field,
+  Poseidon,
+} from 'snarkyjs';
 
 export { CircuitDynamicArray };
 
-const MAX_LEN = 2 ** 8;
+const MAX_LEN = 2 ** 4;
 
 class CircuitDynamicArray extends CircuitValue {
   static maxLength = MAX_LEN;
@@ -16,8 +23,16 @@ class CircuitDynamicArray extends CircuitValue {
     return arr;
   }
 
+  static empty(length: Field): CircuitDynamicArray {
+    const arr = new CircuitDynamicArray();
+    length.assertLte(arr.maxLength());
+    arr.values[0] = length;
+    return arr;
+  }
+
   private constructor() {
     super(fillWithNull([], CircuitDynamicArray.maxLength));
+    this.length().assertEquals(Field.zero);
   }
 
   public length(): Field {
@@ -54,8 +69,33 @@ class CircuitDynamicArray extends CircuitValue {
     this.decrementLength(Field(1));
   }
 
+  public concat(other: CircuitDynamicArray): CircuitDynamicArray {
+    const newLength = this.length().add(other.length());
+    Field(this.maxLength()).assertGte(newLength);
+
+    const newArr = other.slice();
+    newArr.shiftRight(this.length());
+
+    for (let i = 1; i < this.maxLength(); i++) {
+      newArr.values[i] = this.values[i].add(newArr.values[i]);
+    }
+
+    return newArr;
+  }
+
+  public slice(): CircuitDynamicArray {
+    const newArr = new CircuitDynamicArray();
+    newArr.values = this.values.slice();
+    this.length().assertEquals(newArr.length());
+    return newArr;
+  }
+
   hash(): Field {
     return Poseidon.hash(this.values);
+  }
+
+  private maxLength(): number {
+    return (this.constructor as typeof CircuitDynamicArray).maxLength - 1;
   }
 
   private indexMask(index: Field): Field[] {
@@ -70,15 +110,46 @@ class CircuitDynamicArray extends CircuitValue {
   }
 
   private incrementLength(n: Field): void {
-    const currentLength = this.length();
     this.values[0] = this.length().add(n);
-    this.length().assertEquals(currentLength.add(n));
   }
 
   private decrementLength(n: Field): void {
-    const currentLength = this.length();
     this.values[0] = this.length().sub(n);
-    this.length().assertEquals(currentLength.sub(n));
+  }
+
+  public shiftRight(n: Field): void {
+    this.length().add(n).assertLt(this.maxLength());
+    const nullArray = CircuitDynamicArray.empty(n);
+    this.incrementLength(n);
+
+    const possibleResults = [];
+    for (let i = 1; i < CircuitDynamicArray.maxLength; i++) {
+      possibleResults[i - 1] = nullArray.values
+        .slice(1, i)
+        .concat(this.values.slice(1, CircuitDynamicArray.maxLength + 1 - i));
+    }
+
+    const lengthMask = [];
+    for (let i = 1; i < CircuitDynamicArray.maxLength; i++) {
+      const isIndex = Field(i).equals(nullArray.length().add(1));
+      lengthMask[i - 1] = isIndex;
+    }
+
+    const result = [];
+    for (let i = 0; i < this.maxLength(); i++) {
+      let possibleFieldsAtI = possibleResults.map((r) => r[i]);
+      result[i] = Circuit.switch(lengthMask, Field, possibleFieldsAtI);
+    }
+    this.values = [this.values[0]].concat(result);
+  }
+
+  public static lengthMask(n: Field): Bool[] {
+    let mask = [];
+    for (let i = 0; i < CircuitDynamicArray.maxLength; i++) {
+      const isField = Field(i).lte(n);
+      mask[i] = isField;
+    }
+    return mask;
   }
 }
 
