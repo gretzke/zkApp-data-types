@@ -1,19 +1,13 @@
-import {
-  arrayProp,
-  Bool,
-  Circuit,
-  CircuitValue,
-  Field,
-  Poseidon,
-} from 'snarkyjs';
+import { Bool, Circuit, Field, Poseidon, Struct } from 'snarkyjs';
 
 export { CircuitDynamicArray };
 
 const MAX_LEN = 2 ** 3;
 
-class CircuitDynamicArray extends CircuitValue {
+class CircuitDynamicArray extends Struct({
+  values: Circuit.array(Field, MAX_LEN),
+}) {
   static maxLength = MAX_LEN;
-  @arrayProp(Field, MAX_LEN) public values: Field[];
 
   static fromFields(fields: Field[]): CircuitDynamicArray {
     const arr = new CircuitDynamicArray();
@@ -30,7 +24,7 @@ class CircuitDynamicArray extends CircuitValue {
   }
 
   private constructor() {
-    super(fillWithNull([], CircuitDynamicArray.maxLength));
+    super({ values: fillWithNull([], CircuitDynamicArray.maxLength) });
   }
 
   public length(): Field {

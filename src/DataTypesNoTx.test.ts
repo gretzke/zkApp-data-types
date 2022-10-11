@@ -13,7 +13,7 @@ import { CircuitDynamicArray } from './dynamicArray';
 const prove = false;
 
 function createLocalBlockchain() {
-  const Local = Mina.LocalBlockchain({ proofsEnabled: prove });
+  const Local = Mina.LocalBlockchain();
   Mina.setActiveInstance(Local);
   return Local.testAccounts[0].privateKey;
 }
@@ -26,7 +26,7 @@ async function localDeploy(
   const txn = await Mina.transaction(deployerAccount, () => {
     AccountUpdate.fundNewAccount(deployerAccount);
     zkAppInstance.deploy({ zkappKey: zkAppPrivatekey });
-    // zkAppInstance.sign(zkAppPrivatekey);
+    zkAppInstance.sign(zkAppPrivatekey);
   });
   await txn.send();
 }
@@ -56,68 +56,38 @@ describe('DataTypes', () => {
 
   it('should be able to get an item from the dynamic array', async () => {
     const values = [0, 1, 2].map((x) => Field(x));
-    const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.get(
-        CircuitDynamicArray.fromFields(values),
-        Field(1),
-        Field(1)
-      );
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
-    });
-    if (prove) await txn.prove();
-    await txn.send();
+    const arr = CircuitDynamicArray.fromFields(values);
+    arr.get(Field.one).assertEquals(Field.one);
   });
 
   it('should be able to set an item in the dynamic array', async () => {
     const values = [0, 1, 2].map((x) => Field(x));
     const newArray = [0, 3, 2].map((x) => Field(x));
     const newArrayHash = CircuitDynamicArray.fromFields(newArray).hash();
+    const arr = CircuitDynamicArray.fromFields(values);
 
-    const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.set(
-        CircuitDynamicArray.fromFields(values),
-        Field(1),
-        Field(3),
-        newArrayHash
-      );
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
-    });
-    if (prove) await txn.prove();
-    await txn.send();
+    arr.set(Field.one, Field(3));
+    arr.hash().assertEquals(newArrayHash);
   });
 
   it('should be able to push an item to the dynamic array', async () => {
     const values = [0, 1, 2].map((x) => Field(x));
     const newArray = [0, 1, 2, 3].map((x) => Field(x));
     const newArrayHash = CircuitDynamicArray.fromFields(newArray).hash();
+    const arr = CircuitDynamicArray.fromFields(values);
 
-    const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.push(
-        CircuitDynamicArray.fromFields(values),
-        Field(3),
-        newArrayHash
-      );
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
-    });
-    if (prove) await txn.prove();
-    await txn.send();
+    arr.push(Field(3));
+    arr.hash().assertEquals(newArrayHash);
   });
 
   it('should be able to remove the last item of the dynamic array', async () => {
     const values = [0, 1, 2, 3].map((x) => Field(x));
     const newArray = [0, 1].map((x) => Field(x));
     const newArrayHash = CircuitDynamicArray.fromFields(newArray).hash();
+    const arr = CircuitDynamicArray.fromFields(values);
 
-    const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.pop(
-        CircuitDynamicArray.fromFields(values),
-        Field(2),
-        newArrayHash
-      );
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
-    });
-    if (prove) await txn.prove();
-    await txn.send();
+    arr.pop(Field(2));
+    arr.hash().assertEquals(newArrayHash);
   });
 
   it('should be able to make a copy of a dynamic array', async () => {
@@ -136,45 +106,28 @@ describe('DataTypes', () => {
     const otherValues = [3, 4, 5].map((x) => Field(x));
     const newArray = [0, 1, 2, 3, 4, 5].map((x) => Field(x));
     const newArrayHash = CircuitDynamicArray.fromFields(newArray).hash();
+    const arr = CircuitDynamicArray.fromFields(values);
+    const other = CircuitDynamicArray.fromFields(otherValues);
 
-    const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.concat(
-        CircuitDynamicArray.fromFields(values),
-        CircuitDynamicArray.fromFields(otherValues),
-        newArrayHash
-      );
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
-    });
-    if (prove) await txn.prove();
-    await txn.send();
+    const newArr = arr.concat(other);
+    newArr.hash().assertEquals(newArrayHash);
+    newArr.insert(Field(0), Field(9));
   });
 
   it('should be able to insert item into the dynamic array', async () => {
     const values = [0, 1, 2, 3].map((x) => Field(x));
     const newArray = [0, 1, 9, 2, 3].map((x) => Field(x));
     const newArrayHash = CircuitDynamicArray.fromFields(newArray).hash();
+    const arr = CircuitDynamicArray.fromFields(values);
 
-    const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.insert(
-        CircuitDynamicArray.fromFields(values),
-        Field(2),
-        Field(9),
-        newArrayHash
-      );
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
-    });
-    if (prove) await txn.prove();
-    await txn.send();
+    arr.insert(Field(2), Field(9));
+    arr.hash().assertEquals(newArrayHash);
   });
 
   it('should be able to assert whether an item exists inside of an array', async () => {
     const values = [0, 1, 2, 3].map((x) => Field(x));
+    const arr = CircuitDynamicArray.fromFields(values);
 
-    const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.exists(CircuitDynamicArray.fromFields(values), Field(2));
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
-    });
-    if (prove) await txn.prove();
-    await txn.send();
+    arr.assertExists(Field(2));
   });
 });
