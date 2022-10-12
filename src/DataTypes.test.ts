@@ -26,7 +26,6 @@ async function localDeploy(
   const txn = await Mina.transaction(deployerAccount, () => {
     AccountUpdate.fundNewAccount(deployerAccount);
     zkAppInstance.deploy({ zkappKey: zkAppPrivatekey });
-    // zkAppInstance.sign(zkAppPrivatekey);
   });
   await txn.send();
 }
@@ -62,9 +61,8 @@ describe('DataTypes', () => {
         Field(1),
         Field(1)
       );
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
     });
-    if (prove) await txn.prove();
+    await txn.prove();
     await txn.send();
   });
 
@@ -80,9 +78,8 @@ describe('DataTypes', () => {
         Field(3),
         newArrayHash
       );
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
     });
-    if (prove) await txn.prove();
+    await txn.prove();
     await txn.send();
   });
 
@@ -97,9 +94,8 @@ describe('DataTypes', () => {
         Field(3),
         newArrayHash
       );
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
     });
-    if (prove) await txn.prove();
+    await txn.prove();
     await txn.send();
   });
 
@@ -114,9 +110,8 @@ describe('DataTypes', () => {
         Field(2),
         newArrayHash
       );
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
     });
-    if (prove) await txn.prove();
+    await txn.prove();
     await txn.send();
   });
 
@@ -143,9 +138,8 @@ describe('DataTypes', () => {
         CircuitDynamicArray.fromFields(otherValues),
         newArrayHash
       );
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
     });
-    if (prove) await txn.prove();
+    await txn.prove();
     await txn.send();
   });
 
@@ -161,9 +155,8 @@ describe('DataTypes', () => {
         Field(9),
         newArrayHash
       );
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
     });
-    if (prove) await txn.prove();
+    await txn.prove();
     await txn.send();
   });
 
@@ -172,9 +165,8 @@ describe('DataTypes', () => {
 
     const txn = await Mina.transaction(deployerAccount, () => {
       zkAppInstance.exists(CircuitDynamicArray.fromFields(values), Field(2));
-      // if (!prove) zkAppInstance.sign(zkAppPrivateKey);
     });
-    if (prove) await txn.prove();
+    await txn.prove();
     await txn.send();
   });
 });
