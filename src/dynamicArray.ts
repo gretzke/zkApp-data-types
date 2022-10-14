@@ -9,7 +9,7 @@ class CircuitDynamicArray extends Struct({
 }) {
   static maxLength = MAX_LEN;
 
-  static fromFields(fields: Field[]): CircuitDynamicArray {
+  static from(fields: Field[]): CircuitDynamicArray {
     const arr = new CircuitDynamicArray();
     for (let i = 0; i < fields.length; i++) {
       arr.push(fields[i]);
