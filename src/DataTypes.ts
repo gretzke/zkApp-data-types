@@ -6,7 +6,7 @@ import {
   SmartContract,
 } from 'snarkyjs';
 
-import { CircuitDynamicArray } from './dynamicArray';
+import { DynamicArray } from './dynamicArray.js';
 
 export class DataTypes extends SmartContract {
   deploy(args: DeployArgs) {
@@ -17,51 +17,45 @@ export class DataTypes extends SmartContract {
     });
   }
 
-  @method get(arr: CircuitDynamicArray, index: Field, value: Field) {
-    arr.get(index).assertEquals(value);
+  @method get(arr: Field[], index: Field, value: Field) {
+    const dynamicArr = DynamicArray(Field, 8).from(arr);
+    dynamicArr.get(index).assertEquals(value);
+    dynamicArr.map((x: Field) => x.mul(Field(2)));
   }
 
-  @method set(
-    arr: CircuitDynamicArray,
-    index: Field,
-    value: Field,
-    newHash: Field
-  ) {
-    arr.set(index, value);
-    arr.hash().assertEquals(newHash);
+  @method set(arr: Field[], index: Field, value: Field, newHash: Field) {
+    const dynamicArr = DynamicArray(Field, 8).from(arr);
+    dynamicArr.set(index, value);
+    dynamicArr.hash().assertEquals(newHash);
   }
 
-  @method push(arr: CircuitDynamicArray, value: Field, newHash: Field) {
-    arr.push(value);
-    arr.hash().assertEquals(newHash);
+  @method push(arr: Field[], value: Field, newHash: Field) {
+    const dynamicArr = DynamicArray(Field, 8).from(arr);
+    dynamicArr.push(value);
+    dynamicArr.hash().assertEquals(newHash);
   }
 
-  @method pop(arr: CircuitDynamicArray, amount: Field, newHash: Field) {
-    arr.pop(amount);
-    arr.hash().assertEquals(newHash);
+  @method pop(arr: Field[], amount: Field, newHash: Field) {
+    const dynamicArr = DynamicArray(Field, 8).from(arr);
+    dynamicArr.pop(amount);
+    dynamicArr.hash().assertEquals(newHash);
   }
 
-  @method concat(
-    arr: CircuitDynamicArray,
-    other: CircuitDynamicArray,
-    newHash: Field
-  ) {
-    const newArr = arr.concat(other);
+  @method concat(arr: Field[], other: Field[], newHash: Field) {
+    const dynamicArr = DynamicArray(Field, 8).from(arr);
+    const otherDynamicArr = DynamicArray(Field, 8).from(other);
+    const newArr = dynamicArr.concat(otherDynamicArr);
     newArr.hash().assertEquals(newHash);
-    newArr.insert(Field(0), Field(9));
   }
 
-  @method insert(
-    arr: CircuitDynamicArray,
-    index: Field,
-    value: Field,
-    newHash: Field
-  ) {
-    arr.insert(index, value);
-    arr.hash().assertEquals(newHash);
+  @method insert(arr: Field[], index: Field, value: Field, newHash: Field) {
+    const dynamicArr = DynamicArray(Field, 8).from(arr);
+    dynamicArr.insert(index, value);
+    dynamicArr.hash().assertEquals(newHash);
   }
 
-  @method exists(arr: CircuitDynamicArray, value: Field) {
-    arr.assertExists(value);
+  @method exists(arr: Field[], value: Field) {
+    const dynamicArr = DynamicArray(Field, 8).from(arr);
+    dynamicArr.assertExists(value);
   }
 }

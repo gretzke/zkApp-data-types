@@ -1,215 +1,225 @@
-import { Bool, Circuit, Field, Poseidon, Struct } from 'snarkyjs';
+import { Bool, Circuit, Field, Poseidon, Provable, Struct } from 'snarkyjs';
 
-export { CircuitDynamicArray };
+export { DynamicArray };
 
-const MAX_LEN = 2 ** 3;
+type HashableProvable<T> = Provable<T> & {
+  hash(x: T): Field;
+  equals(x: T, other: T): Bool;
+};
 
-class CircuitDynamicArray extends Struct({
-  values: Circuit.array(Field, MAX_LEN),
-}) {
-  static maxLength = MAX_LEN;
-
-  static from(fields: Field[]): CircuitDynamicArray {
-    const arr = new CircuitDynamicArray();
-    for (let i = 0; i < fields.length; i++) {
-      arr.push(fields[i]);
-    }
-    return arr;
-  }
-
-  static empty(length: Field): CircuitDynamicArray {
-    const arr = new CircuitDynamicArray();
-    arr.values[0] = length;
-    return arr;
-  }
-
-  private constructor() {
-    super({ values: fillWithNull([], CircuitDynamicArray.maxLength) });
-  }
-
-  public length(): Field {
-    return this.values[0];
-  }
-
-  public get(index: Field): Field {
-    let mask = this.indexMask(index);
-    let result = Field(0);
-    for (let i = 1; i < CircuitDynamicArray.maxLength; i++) {
-      result = result.add(this.values[i].mul(mask[i]));
-    }
-    return result;
-  }
-
-  public set(index: Field, value: Field): void {
-    let mask = this.indexMask(index);
-    for (let i = 1; i < CircuitDynamicArray.maxLength; i++) {
-      this.values[i] = this.values[i]
-        .mul(Field.one.sub(mask[i]))
-        .add(value.mul(mask[i]));
-    }
-  }
-
-  public push(value: Field): void {
-    this.incrementLength(Field(1));
-    this.set(this.length().sub(1), value);
-  }
-
-  public pop(n: Field): void {
-    const mask = [];
-    for (let i = 0; i < CircuitDynamicArray.maxLength; i++) {
-      mask[i] = Field(i).lte(this.length().sub(n)).toField();
-    }
-
-    this.decrementLength(n);
-
-    for (let i = 1; i < CircuitDynamicArray.maxLength; i++) {
-      this.values[i] = this.values[i].mul(mask[i]);
-    }
-  }
-
-  public concat(other: CircuitDynamicArray): CircuitDynamicArray {
-    const newArr = other.copy();
-    newArr.shiftRight(this.length());
-    for (let i = 1; i < this.maxLength(); i++) {
-      newArr.values[i] = this.values[i].add(newArr.values[i]);
-    }
-    return newArr;
-  }
-
-  public copy(): CircuitDynamicArray {
-    const newArr = new CircuitDynamicArray();
-    newArr.values = this.values.slice();
-    return newArr;
-  }
-
-  public slice(start: Field, end: Field): CircuitDynamicArray {
-    const newArr = new CircuitDynamicArray();
-    newArr.values = this.values.slice();
-    newArr.shiftLeft(start);
-    newArr.pop(newArr.length().sub(end.sub(start)));
-    return newArr;
-  }
-
-  public insert(index: Field, value: Field): void {
-    const arr1 = this.slice(Field.zero, index);
-    const arr2 = this.slice(index, this.length());
-    arr2.shiftRight(Field.one);
-    arr2.set(Field.zero, value);
-    this.values = arr1.concat(arr2).values;
-  }
-
-  public assertExists(value: Field) {
-    const mask = [];
-    for (let i = 1; i < CircuitDynamicArray.maxLength; i++) {
-      mask[i - 1] = this.values[i].equals(value).toField();
-    }
-
-    let result = Field.zero;
-    for (let i = 0; i < mask.length; i++) {
-      result = result.add(mask[i]);
-    }
-
-    result.assertGt(Field.zero);
-  }
-
-  public shiftLeft(n: Field): void {
-    n.assertLt(this.length());
-    const nullArray = CircuitDynamicArray.empty(n);
-
-    const possibleResults = [];
-
-    for (let i = 1; i < CircuitDynamicArray.maxLength; i++) {
-      possibleResults[i - 1] = this.values
-        .slice(i, CircuitDynamicArray.maxLength)
-        .concat(nullArray.values.slice(1, i));
-    }
-
-    const mask = [];
-    for (let i = 0; i < this.maxLength(); i++) {
-      const isIndex = Field(i).equals(n);
-      mask[i] = isIndex;
-    }
-
-    const newLength = this.length().sub(n);
-
-    const result = [];
-    for (let i = 0; i < this.maxLength(); i++) {
-      let possibleFieldsAtI = possibleResults.map((r) => r[i]);
-      result[i] = Circuit.switch(mask, Field, possibleFieldsAtI);
-    }
-    this.values = [newLength].concat(result);
-  }
-
-  public shiftRight(n: Field): void {
-    const nullArray = CircuitDynamicArray.empty(n);
-    this.incrementLength(n);
-
-    const possibleResults = [];
-    for (let i = 1; i < CircuitDynamicArray.maxLength; i++) {
-      possibleResults[i - 1] = nullArray.values
-        .slice(1, i)
-        .concat(this.values.slice(1, CircuitDynamicArray.maxLength + 1 - i));
-    }
-
-    const mask = [];
-    for (let i = 1; i < CircuitDynamicArray.maxLength; i++) {
-      const isIndex = Field(i).equals(nullArray.length().add(1));
-      mask[i - 1] = isIndex;
-    }
-
-    const result = [];
-    for (let i = 0; i < this.maxLength(); i++) {
-      let possibleFieldsAtI = possibleResults.map((r) => r[i]);
-      result[i] = Circuit.switch(mask, Field, possibleFieldsAtI);
-    }
-    this.values = [this.values[0]].concat(result);
-  }
-
-  public hash(): Field {
-    return Poseidon.hash(this.values);
-  }
-
-  private maxLength(): number {
-    return (this.constructor as typeof CircuitDynamicArray).maxLength - 1;
-  }
-
-  private indexMask(index: Field): Field[] {
-    // assert index < length
-    index.assertLt(this.length());
-    let mask = [];
-    for (let i = 0; i < CircuitDynamicArray.maxLength; i++) {
-      const isIndex = Field(i).equals(index.add(1)).toField();
-      mask[i] = isIndex;
-    }
-    return mask;
-  }
-
-  private incrementLength(n: Field): void {
-    this.length().add(n).assertLte(this.maxLength());
-    this.values[0] = this.length().add(n);
-  }
-
-  private decrementLength(n: Field): void {
-    n.assertLte(this.length());
-    this.values[0] = this.length().sub(n);
-  }
-
-  public static lengthMask(n: Field): Bool[] {
-    let mask = [];
-    for (let i = 0; i < CircuitDynamicArray.maxLength; i++) {
-      const isField = Field(i).lte(n);
-      mask[i] = isField;
-    }
-    return mask;
-  }
+function hashable<T>(type: Provable<T>): HashableProvable<T> {
+  return {
+    ...type,
+    hash(x: T): Field {
+      return Poseidon.hash(type.toFields(x));
+    },
+    equals(x: T, other: T): Bool {
+      return this.hash(x).equals(this.hash(other));
+    },
+  };
 }
 
-let NullCharacter = () => Field.zero;
+function DynamicArray<T>(_type: Provable<T>, maxLength: number) {
+  const type = hashable(_type);
+  const Null = type.fromFields([Field.zero], []);
 
-function fillWithNull([...values]: Field[], length: number) {
-  let nullChar = NullCharacter();
-  for (let i = values.length; i < length; i++) {
-    values[i] = nullChar;
+  return class _DynamicArray extends Struct({
+    length: Field,
+    values: Circuit.array(type, maxLength),
+  }) {
+    static from(values: T[]): _DynamicArray {
+      const arr = new _DynamicArray();
+      for (let i = 0; i < values.length; i++) {
+        arr.push(values[i]);
+      }
+      return arr;
+    }
+
+    static empty(length: Field): _DynamicArray {
+      const arr = new _DynamicArray();
+      arr.length = length;
+      return arr;
+    }
+
+    private constructor() {
+      super({
+        values: fillWithNull([], maxLength),
+        length: Field.zero,
+      });
+    }
+
+    public get(index: Field): T {
+      const mask = this.indexMask(index);
+      return Circuit.switch(mask, type, this.values);
+    }
+
+    public set(index: Field, value: T): void {
+      const mask = this.indexMask(index);
+      for (let i = 0; i < maxLength; i++) {
+        this.values[i] = Circuit.if(mask[i], value, this.values[i]);
+        // this.values[i] = this.values[i]
+        //   .mul(Field.one.sub(mask[i]))
+        //   .add(value.mul(mask[i]));
+      }
+    }
+
+    public push(value: T): void {
+      this.incrementLength(Field.one);
+      this.set(this.length.sub(1), value);
+    }
+
+    public pop(n: Field): void {
+      const mask = this.lengthMask(this.length.sub(n));
+      this.decrementLength(n);
+
+      for (let i = 0; i < maxLength; i++) {
+        this.values[i] = Circuit.if(mask[i], this.values[i], Null);
+        // this.values[i] = this.values[i].mul(mask[i]);
+      }
+    }
+
+    public concat(other: _DynamicArray): _DynamicArray {
+      // assert max length and type compatibility
+      const newArr = other.copy();
+      newArr.shiftRight(this.length);
+      for (let i = 0; i < maxLength; i++) {
+        newArr.values[i] = Circuit.if(
+          Field(i).lt(this.length),
+          this.values[i],
+          newArr.values[i]
+        );
+      }
+      return newArr;
+    }
+
+    public copy(): _DynamicArray {
+      const newArr = new _DynamicArray();
+      newArr.values = this.values.slice();
+      newArr.length = this.length;
+      return newArr;
+    }
+
+    public slice(start: Field, end: Field): _DynamicArray {
+      const newArr = this.copy();
+      newArr.shiftLeft(start);
+      newArr.pop(newArr.length.sub(end.sub(start)));
+      return newArr;
+    }
+
+    public insert(index: Field, value: T): void {
+      const arr1 = this.slice(Field.zero, index);
+      const arr2 = this.slice(index, this.length);
+      arr2.shiftRight(Field.one);
+      arr2.set(Field.zero, value);
+      this.values = arr1.concat(arr2).values;
+    }
+
+    public assertExists(value: T): void {
+      let result = Field.zero;
+      for (let i = 0; i < maxLength; i++) {
+        result = result.add(
+          Circuit.if(type.equals(this.values[i], value), Field.one, Field.zero)
+        );
+      }
+      result.assertGt(Field.zero);
+    }
+
+    public shiftLeft(n: Field): void {
+      n.assertLt(this.length);
+      this.decrementLength(n);
+
+      const nullArray = _DynamicArray.empty(n);
+
+      const possibleResults = [];
+      const mask = [];
+      for (let i = 0; i < maxLength; i++) {
+        possibleResults[i] = this.values
+          .slice(i, maxLength)
+          .concat(nullArray.values.slice(0, i));
+        mask[i] = Field(i).equals(n);
+      }
+
+      const result = [];
+      for (let i = 0; i < maxLength; i++) {
+        const possibleFieldsAtI = possibleResults.map((r) => r[i]);
+        result[i] = Circuit.switch(mask, type, possibleFieldsAtI);
+      }
+      this.values = result;
+    }
+
+    public shiftRight(n: Field): void {
+      const nullArray = _DynamicArray.empty(n);
+      this.incrementLength(n);
+
+      const possibleResults = [];
+      const mask = [];
+      for (let i = 0; i < maxLength; i++) {
+        possibleResults[i] = nullArray.values
+          .slice(0, i)
+          .concat(this.values.slice(0, maxLength - i));
+        mask[i] = Field(i).equals(nullArray.length);
+      }
+
+      const result = [];
+      for (let i = 0; i < maxLength; i++) {
+        const possibleFieldsAtI = possibleResults.map((r) => r[i]);
+        result[i] = Circuit.switch(mask, type, possibleFieldsAtI);
+      }
+      this.values = result;
+    }
+
+    public hash(): Field {
+      return Poseidon.hash(this.values.map((v) => type.toFields(v)).flat());
+    }
+
+    public toString(): string {
+      return this.values.toString();
+    }
+
+    public indexMask(index: Field): Bool[] {
+      // assert index < length
+      index.assertLt(this.length);
+      const mask = [];
+      for (let i = 0; i < maxLength; i++) {
+        mask[i] = Field(i).equals(index);
+      }
+      return mask;
+    }
+
+    public incrementLength(n: Field): void {
+      this.length.add(n).assertLte(maxLength);
+      this.length = this.length.add(n);
+    }
+
+    public decrementLength(n: Field): void {
+      n.assertLte(this.length);
+      this.length = this.length.sub(n);
+    }
+
+    public lengthMask(n: Field): Bool[] {
+      const mask = [];
+      for (let i = 0; i < maxLength; i++) {
+        mask[i] = Field(i).lt(n);
+      }
+      return mask;
+    }
+
+    // eslint-disable-next-line no-unused-vars
+    public map(fn: (_: T) => T): void {
+      for (let i = 0; i < this.values.length; i++) {
+        this.values[i] = Circuit.if(
+          Field(i).lt(this.length),
+          fn(this.values[i]),
+          Null
+        );
+      }
+    }
+  };
+
+  function fillWithNull([...values]: T[], length: number): T[] {
+    for (let i = values.length; i < length; i++) {
+      values[i] = Null;
+    }
+    return values;
   }
-  return values;
 }
