@@ -6,7 +6,7 @@ import {
   SmartContract,
 } from 'snarkyjs';
 
-import { DynamicArray } from './dynamicArray';
+import { DynamicArray } from './dynamicArray.js';
 
 export class FieldArray extends DynamicArray(Field, 8) {}
 

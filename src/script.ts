@@ -34,11 +34,11 @@ await txn.send();
 
 console.log('get()');
 
-const Array = DynamicArray(Field, 10);
-const NestedArray = DynamicArray(Array, 10);
+const MyArray = DynamicArray(Field, 10);
+const NestedArray = DynamicArray(MyArray, 10);
 
 function arr(vals: number[]) {
-  return Array.from(vals.map((x) => Field(x)));
+  return MyArray.from(vals.map((x) => Field(x)));
 }
 
 const array = NestedArray.empty();
