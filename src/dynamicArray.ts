@@ -60,7 +60,11 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
     public set(index: Field, value: T): void {
       const mask = this.indexMask(index);
       for (let i = 0; i < maxLength; i++) {
-        this.values[i] = Circuit.if(mask[i], value, this.values[i]);
+        this.values[i] = this.values[i] = Circuit.switch(
+          [mask[i], mask[i].not()],
+          type,
+          [value, this.values[i]]
+        );
       }
     }
 
@@ -74,7 +78,10 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
       this.decrementLength(n);
 
       for (let i = 0; i < maxLength; i++) {
-        this.values[i] = Circuit.if(mask[i], this.values[i], Null());
+        this.values[i] = Circuit.switch([mask[i], mask[i].not()], type, [
+          this.values[i],
+          Null(),
+        ]);
       }
     }
 
