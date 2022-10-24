@@ -6,7 +6,9 @@ import {
   SmartContract,
 } from 'snarkyjs';
 
-import { DynamicArray } from './dynamicArray.js';
+import { DynamicArray } from './dynamicArray';
+
+export class FieldArray extends DynamicArray(Field, 8) {}
 
 export class DataTypes extends SmartContract {
   deploy(args: DeployArgs) {
@@ -17,45 +19,37 @@ export class DataTypes extends SmartContract {
     });
   }
 
-  @method get(arr: Field[], index: Field, value: Field) {
-    const dynamicArr = DynamicArray(Field, 8).from(arr);
-    dynamicArr.get(index).assertEquals(value);
-    dynamicArr.map((x: Field) => x.mul(Field(2)));
+  @method get(arr: FieldArray, index: Field, value: Field) {
+    arr.get(index).assertEquals(value);
+    arr.map((x: Field) => x.mul(Field(2)));
   }
 
-  @method set(arr: Field[], index: Field, value: Field, newHash: Field) {
-    const dynamicArr = DynamicArray(Field, 8).from(arr);
-    dynamicArr.set(index, value);
-    dynamicArr.hash().assertEquals(newHash);
+  @method set(arr: FieldArray, index: Field, value: Field, newHash: Field) {
+    arr.set(index, value);
+    arr.hash().assertEquals(newHash);
   }
 
-  @method push(arr: Field[], value: Field, newHash: Field) {
-    const dynamicArr = DynamicArray(Field, 8).from(arr);
-    dynamicArr.push(value);
-    dynamicArr.hash().assertEquals(newHash);
+  @method push(arr: FieldArray, value: Field, newHash: Field) {
+    arr.push(value);
+    arr.hash().assertEquals(newHash);
   }
 
-  @method pop(arr: Field[], amount: Field, newHash: Field) {
-    const dynamicArr = DynamicArray(Field, 8).from(arr);
-    dynamicArr.pop(amount);
-    dynamicArr.hash().assertEquals(newHash);
+  @method pop(arr: FieldArray, amount: Field, newHash: Field) {
+    arr.pop(amount);
+    arr.hash().assertEquals(newHash);
   }
 
-  @method concat(arr: Field[], other: Field[], newHash: Field) {
-    const dynamicArr = DynamicArray(Field, 8).from(arr);
-    const otherDynamicArr = DynamicArray(Field, 8).from(other);
-    const newArr = dynamicArr.concat(otherDynamicArr);
+  @method concat(arr: FieldArray, other: FieldArray, newHash: Field) {
+    const newArr = arr.concat(other);
     newArr.hash().assertEquals(newHash);
   }
 
-  @method insert(arr: Field[], index: Field, value: Field, newHash: Field) {
-    const dynamicArr = DynamicArray(Field, 8).from(arr);
-    dynamicArr.insert(index, value);
-    dynamicArr.hash().assertEquals(newHash);
+  @method insert(arr: FieldArray, index: Field, value: Field, newHash: Field) {
+    arr.insert(index, value);
+    arr.hash().assertEquals(newHash);
   }
 
-  @method exists(arr: Field[], value: Field) {
-    const dynamicArr = DynamicArray(Field, 8).from(arr);
-    dynamicArr.assertExists(value);
+  @method exists(arr: FieldArray, value: Field) {
+    arr.assertExists(value);
   }
 }

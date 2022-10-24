@@ -7,8 +7,7 @@ import {
   PublicKey,
   shutdown,
 } from 'snarkyjs';
-import { DataTypes } from './DataTypes';
-import { DynamicArray } from './dynamicArray';
+import { DataTypes, FieldArray } from './DataTypes';
 
 const prove = false;
 
@@ -56,7 +55,7 @@ describe('DataTypes', () => {
   it('should be able to get an item from the dynamic array', async () => {
     const values = [0, 1, 2].map((x) => Field(x));
     const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.get(values, Field(1), Field(1));
+      zkAppInstance.get(FieldArray.from(values), Field(1), Field(1));
     });
     await txn.prove();
     await txn.send();
@@ -65,10 +64,15 @@ describe('DataTypes', () => {
   it('should be able to set an item in the dynamic array', async () => {
     const values = [0, 1, 2].map((x) => Field(x));
     const newArray = [0, 3, 2].map((x) => Field(x));
-    const newArrayHash = DynamicArray(Field, 8).from(newArray).hash();
+    const newArrayHash = FieldArray.from(newArray).hash();
 
     const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.set(values, Field(1), Field(3), newArrayHash);
+      zkAppInstance.set(
+        FieldArray.from(values),
+        Field(1),
+        Field(3),
+        newArrayHash
+      );
     });
     await txn.prove();
     await txn.send();
@@ -77,10 +81,10 @@ describe('DataTypes', () => {
   it('should be able to push an item to the dynamic array', async () => {
     const values = [0, 1, 2].map((x) => Field(x));
     const newArray = [0, 1, 2, 3].map((x) => Field(x));
-    const newArrayHash = DynamicArray(Field, 8).from(newArray).hash();
+    const newArrayHash = FieldArray.from(newArray).hash();
 
     const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.push(values, Field(3), newArrayHash);
+      zkAppInstance.push(FieldArray.from(values), Field(3), newArrayHash);
     });
     await txn.prove();
     await txn.send();
@@ -89,17 +93,17 @@ describe('DataTypes', () => {
   it('should be able to remove the last item of the dynamic array', async () => {
     const values = [0, 1, 2, 3].map((x) => Field(x));
     const newArray = [0, 1].map((x) => Field(x));
-    const newArrayHash = DynamicArray(Field, 8).from(newArray).hash();
+    const newArrayHash = FieldArray.from(newArray).hash();
 
     const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.pop(values, Field(2), newArrayHash);
+      zkAppInstance.pop(FieldArray.from(values), Field(2), newArrayHash);
     });
     await txn.prove();
     await txn.send();
   });
 
   it('should be able to make a copy of a dynamic array', async () => {
-    const arr = DynamicArray(Field, 8).from([1, 2, 3].map((x) => Field(x)));
+    const arr = FieldArray.from([1, 2, 3].map((x) => Field(x)));
     const copy = arr.copy();
 
     arr.set(Field(1), Field(4));
@@ -113,10 +117,14 @@ describe('DataTypes', () => {
     const values = [0, 1, 2].map((x) => Field(x));
     const otherValues = [3, 4, 5].map((x) => Field(x));
     const newArray = [0, 1, 2, 3, 4, 5].map((x) => Field(x));
-    const newArrayHash = DynamicArray(Field, 8).from(newArray).hash();
+    const newArrayHash = FieldArray.from(newArray).hash();
 
     const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.concat(values, otherValues, newArrayHash);
+      zkAppInstance.concat(
+        FieldArray.from(values),
+        FieldArray.from(otherValues),
+        newArrayHash
+      );
     });
     await txn.prove();
     await txn.send();
@@ -125,10 +133,15 @@ describe('DataTypes', () => {
   it('should be able to insert item into the dynamic array', async () => {
     const values = [0, 1, 2, 3].map((x) => Field(x));
     const newArray = [0, 1, 9, 2, 3].map((x) => Field(x));
-    const newArrayHash = DynamicArray(Field, 8).from(newArray).hash();
+    const newArrayHash = FieldArray.from(newArray).hash();
 
     const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.insert(values, Field(2), Field(9), newArrayHash);
+      zkAppInstance.insert(
+        FieldArray.from(values),
+        Field(2),
+        Field(9),
+        newArrayHash
+      );
     });
     await txn.prove();
     await txn.send();
@@ -138,7 +151,7 @@ describe('DataTypes', () => {
     const values = [0, 1, 2, 3].map((x) => Field(x));
 
     const txn = await Mina.transaction(deployerAccount, () => {
-      zkAppInstance.exists(values, Field(2));
+      zkAppInstance.exists(FieldArray.from(values), Field(2));
     });
     await txn.prove();
     await txn.send();
