@@ -32,11 +32,7 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
     values: Circuit.array(type, maxLength),
   }) {
     static from(values: T[]): _DynamicArray {
-      const arr = new _DynamicArray();
-      for (let i = 0; i < values.length; i++) {
-        arr.push(values[i]);
-      }
-      return arr;
+      return new _DynamicArray(values);
     }
 
     static empty(length?: Field): _DynamicArray {
@@ -45,10 +41,10 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
       return arr;
     }
 
-    public constructor() {
+    public constructor(values?: T[]) {
       super({
-        values: fillWithNull([], maxLength),
-        length: Field.zero,
+        values: fillWithNull(values ?? [], maxLength),
+        length: values === undefined ? Field.zero : Field(values.length),
       });
     }
 
@@ -60,11 +56,10 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
     public set(index: Field, value: T): void {
       const mask = this.indexMask(index);
       for (let i = 0; i < maxLength; i++) {
-        this.values[i] = this.values[i] = Circuit.switch(
-          [mask[i], mask[i].not()],
-          type,
-          [value, this.values[i]]
-        );
+        this.values[i] = Circuit.switch([mask[i], mask[i].not()], type, [
+          value,
+          this.values[i],
+        ]);
       }
     }
 
