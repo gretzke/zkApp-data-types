@@ -1,17 +1,9 @@
-import {
-  AccountUpdate,
-  Field,
-  isReady,
-  Mina,
-  PrivateKey,
-  shutdown,
-} from 'snarkyjs';
+import { AccountUpdate, isReady, Mina, PrivateKey, shutdown } from 'snarkyjs';
 import { DataTypes } from './DataTypes.js';
-import { DynamicArray } from './dynamicArray.js';
 
 await isReady;
 
-const prove = false;
+const prove = true;
 
 const Local = Mina.LocalBlockchain({ proofsEnabled: prove });
 Mina.setActiveInstance(Local);
@@ -26,7 +18,7 @@ console.log('compile');
 if (prove) await DataTypes.compile();
 
 console.log('deploy');
-const txn = await Mina.transaction(deployerAccount, () => {
+let txn = await Mina.transaction(deployerAccount, () => {
   AccountUpdate.fundNewAccount(deployerAccount);
   zkAppInstance.deploy({ zkappKey: zkAppPrivateKey });
 });
@@ -34,44 +26,92 @@ await txn.send();
 
 console.log('get()');
 
-const MyArray = DynamicArray(Field, 10);
-const NestedArray = DynamicArray(MyArray, 10);
-
-function arr(vals: number[]) {
-  return MyArray.from(vals.map((x) => Field(x)));
-}
-
-const array = NestedArray.empty();
-array.push(arr([1, 2, 3]));
-array.push(arr([4, 5, 6]));
-console.log('setup', array.toString());
-const res = array.get(Field(1));
-console.log('get', res.toString());
-array.set(Field(1), arr([7, 8, 9, 10]));
-console.log('set', array.toString());
-array.push(arr([8]));
-console.log('push', array.toString());
-array.pop(Field(1));
-console.log('pop', array.toString());
-const newArr = array.concat(NestedArray.from([arr([9, 8, 7]), arr([6, 5, 4])]));
-console.log('concat', newArr.toString());
-console.log('insert before', array.toString());
-array.insert(Field(1), arr([4, 5, 6]));
-console.log('insert after', array.toString());
-array.assertExists(arr([7, 8, 9, 10]));
-
-// const values = [1, 2, 3, 4, 5, 6].map((x) => new UInt64(x));
-// const other = DynamicArray(UInt64, 10).from(
-//   [1, 2, 3].map((x) => new UInt64(x))
-// );
-// const array = DynamicArray(UInt64, 10).from(values);
-
-// txn = await Mina.transaction(deployerAccount, () => {
-//   // console.log(array.toString());
-//   zkAppInstance.get(array, Field(1), Field(2));
-// });
-// console.log('prove');
-// await txn.prove();
-// await txn.send();
+txn = await Mina.transaction(deployerAccount, () => {
+  zkAppInstance.jsonTest();
+});
+console.log('prove');
+await txn.prove();
+await txn.send();
 
 shutdown();
+
+// JS implementations
+
+function require(expr: boolean, msg: string) {
+  if (!expr) {
+    throw new Error(msg);
+  }
+}
+function index(str: string, desiredIndex: number) {
+  const arr = str.split('');
+  require(arr[0] === '[', 'expected [');
+  require(arr[arr.length - 1] === ']', 'expected ]');
+  let index = -1;
+  let newIndex = true;
+  let depth = 0;
+  let insideString = false;
+  let start = 0;
+  let end = 0;
+  for (let i = 1; i < arr.length - 1; i++) {
+    insideString =
+      arr[i] === '"' && arr[i - 1] !== '\\' ? !insideString : insideString;
+    depth =
+      !insideString && (arr[i] === '[' || arr[i] === '{') ? depth + 1 : depth;
+    depth =
+      !insideString && (arr[i] === ']' || arr[i] === '}') ? depth - 1 : depth;
+    index += newIndex ? 1 : 0;
+    start += index === desiredIndex && newIndex ? i : 0;
+    end += index === desiredIndex + 1 && newIndex ? i - 1 : 0;
+    console.log(
+      arr[i],
+      i,
+      index === desiredIndex,
+      index,
+      newIndex,
+      insideString,
+      depth,
+      start,
+      end
+    );
+    newIndex = arr[i] === ',' && depth === 0;
+  }
+  require(start !== 0 || end !== 0, 'out of bounds');
+  end = end === 0 ? arr.length - 1 : end;
+  console.log(start, end, str.substring(start, end));
+}
+
+function key(str: string, key: string) {
+  const arr = str.split('');
+  require(arr[0] === '{', 'expected {');
+  require(arr[arr.length - 1] === '}', 'expected }');
+  let depth = 0;
+  let keyFound = false;
+  let insideString = false;
+  let keyStart = 0;
+  let start = 0;
+  let end = 0;
+  for (let i = 1; i < arr.length - 1; i++) {
+    const val = arr[i];
+    depth =
+      !insideString &&
+      ((val === ':' && depth === 0) || val === '[' || val === '{')
+        ? depth + 1
+        : depth;
+    depth =
+      !insideString &&
+      ((val === ',' && depth === 1) || val === ']' || val === '}')
+        ? depth - 1
+        : depth;
+    keyStart = insideString && depth === 0 && keyStart === 0 ? i : keyStart;
+    const keyEnd = insideString && depth === 0 && val === '"' ? i : 0;
+    keyFound = keyEnd > 0 ? str.slice(keyStart, keyEnd) === key : keyFound;
+    start = keyFound && !(val === ':') && depth > 0 && start == 0 ? i : start;
+    end = keyFound && depth === 0 && start > 0 && end === 0 ? i : end;
+    keyStart = keyEnd > 0 ? 0 : keyStart;
+    insideString =
+      val === '"' && arr[i - 1] !== '\\' ? !insideString : insideString;
+  }
+  require(start !== 0 || end !== 0, 'key not found');
+  end = end === 0 ? arr.length - 1 : end;
+  console.log(start, end, str.substring(start, end));
+}

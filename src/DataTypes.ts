@@ -1,4 +1,5 @@
 import {
+  Circuit,
   DeployArgs,
   Field,
   method,
@@ -6,7 +7,8 @@ import {
   SmartContract,
 } from 'snarkyjs';
 
-import { DynamicArray } from './dynamicArray.js';
+import { DynamicArray } from './dynamicArray';
+import { parseJSON } from './jsonParsing';
 
 export class FieldArray extends DynamicArray(Field, 8) {}
 
@@ -51,5 +53,20 @@ export class DataTypes extends SmartContract {
 
   @method exists(arr: FieldArray, value: Field) {
     arr.assertExists(value);
+  }
+
+  @method jsonTest() {
+    const jsonObject =
+      '{"result":[{"name":"abc"},{"name":"def","isActive":true,"age":27}]}';
+    // create json parser object
+    const json = parseJSON(jsonObject);
+    // get value from key
+    const result = json.key('result');
+    // get index from array
+    const user = result.index(Field.one);
+    // parse values and process
+    user.key('name').assertEqualString('"def"');
+    user.key('isActive').toBoolean().assertTrue();
+    user.key('age').toNumber().assertGte(Field(21));
   }
 }

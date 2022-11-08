@@ -55,7 +55,7 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
 
     public set(index: Field, value: T): void {
       const mask = this.indexMask(index);
-      for (let i = 0; i < maxLength; i++) {
+      for (let i = 0; i < this.maxLength(); i++) {
         this.values[i] = Circuit.switch([mask[i], mask[i].not()], type, [
           value,
           this.values[i],
@@ -72,7 +72,7 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
       const mask = this.lengthMask(this.length.sub(n));
       this.decrementLength(n);
 
-      for (let i = 0; i < maxLength; i++) {
+      for (let i = 0; i < this.maxLength(); i++) {
         this.values[i] = Circuit.switch([mask[i], mask[i].not()], type, [
           this.values[i],
           Null(),
@@ -80,11 +80,10 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
       }
     }
 
-    public concat(other: _DynamicArray): _DynamicArray {
-      // TODO: assert max length and type compatibility
+    public concat(other: this): this {
       const newArr = other.copy();
       newArr.shiftRight(this.length);
-      for (let i = 0; i < maxLength; i++) {
+      for (let i = 0; i < this.maxLength(); i++) {
         newArr.values[i] = Circuit.if(
           Field(i).lt(this.length),
           this.values[i],
@@ -94,14 +93,14 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
       return newArr;
     }
 
-    public copy(): _DynamicArray {
-      const newArr = new _DynamicArray();
+    public copy(): this {
+      const newArr = new (<any>this.constructor)();
       newArr.values = this.values.slice();
       newArr.length = this.length;
       return newArr;
     }
 
-    public slice(start: Field, end: Field): _DynamicArray {
+    public slice(start: Field, end: Field): this {
       const newArr = this.copy();
       newArr.shiftLeft(start);
       newArr.pop(newArr.length.sub(end.sub(start)));
@@ -120,7 +119,7 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
 
     public assertExists(value: T): void {
       let result = Field.zero;
-      for (let i = 0; i < maxLength; i++) {
+      for (let i = 0; i < this.maxLength(); i++) {
         result = result.add(
           Circuit.if(_type.equals(this.values[i], value), Field.one, Field.zero)
         );
@@ -136,15 +135,15 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
 
       const possibleResults = [];
       const mask = [];
-      for (let i = 0; i < maxLength; i++) {
+      for (let i = 0; i < this.maxLength(); i++) {
         possibleResults[i] = this.values
-          .slice(i, maxLength)
+          .slice(i, this.maxLength())
           .concat(nullArray.values.slice(0, i));
         mask[i] = Field(i).equals(n);
       }
 
       const result = [];
-      for (let i = 0; i < maxLength; i++) {
+      for (let i = 0; i < this.maxLength(); i++) {
         const possibleFieldsAtI = possibleResults.map((r) => r[i]);
         result[i] = Circuit.switch(mask, type, possibleFieldsAtI);
       }
@@ -157,15 +156,15 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
 
       const possibleResults = [];
       const mask = [];
-      for (let i = 0; i < maxLength; i++) {
+      for (let i = 0; i < this.maxLength(); i++) {
         possibleResults[i] = nullArray.values
           .slice(0, i)
-          .concat(this.values.slice(0, maxLength - i));
+          .concat(this.values.slice(0, this.maxLength() - i));
         mask[i] = Field(i).equals(nullArray.length);
       }
 
       const result = [];
-      for (let i = 0; i < maxLength; i++) {
+      for (let i = 0; i < this.maxLength(); i++) {
         const possibleFieldsAtI = possibleResults.map((r) => r[i]);
         result[i] = Circuit.switch(mask, type, possibleFieldsAtI);
       }
@@ -176,6 +175,10 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
       return Poseidon.hash(this.values.map((v) => type.toFields(v)).flat());
     }
 
+    public maxLength(): number {
+      return maxLength;
+    }
+
     public toString(): string {
       return this.values.slice(0, parseInt(this.length.toString())).toString();
     }
@@ -184,14 +187,14 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
       // assert index < length
       index.assertLt(this.length);
       const mask = [];
-      for (let i = 0; i < maxLength; i++) {
+      for (let i = 0; i < this.maxLength(); i++) {
         mask[i] = Field(i).equals(index);
       }
       return mask;
     }
 
     public incrementLength(n: Field): void {
-      this.length.add(n).assertLte(maxLength);
+      this.length.add(n).assertLte(this.maxLength());
       this.length = this.length.add(n);
     }
 
@@ -202,17 +205,17 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
 
     public lengthMask(n: Field): Bool[] {
       const mask = [];
-      for (let i = 0; i < maxLength; i++) {
+      for (let i = 0; i < this.maxLength(); i++) {
         mask[i] = Field(i).lt(n);
       }
       return mask;
     }
 
-    public map(fn: (_: T) => T): void {
+    public map(fn: (v: T, i: Field) => T): void {
       for (let i = 0; i < this.values.length; i++) {
         this.values[i] = Circuit.if(
           Field(i).lt(this.length),
-          fn(this.values[i]),
+          fn(this.values[i], Field(i)),
           Null()
         );
       }
