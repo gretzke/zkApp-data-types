@@ -1,5 +1,4 @@
 import {
-  Circuit,
   DeployArgs,
   Field,
   method,
@@ -63,7 +62,7 @@ export class DataTypes extends SmartContract {
     // get value from key
     const result = json.key('result');
     // get index from array
-    const user = result.index(Field.one);
+    const user = result.index(Field(1));
     // parse values and process
     user.key('name').assertEqualString('"def"');
     user.key('isActive').toBoolean().assertTrue();

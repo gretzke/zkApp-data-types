@@ -157,7 +157,7 @@ describe('DataTypes', () => {
     await txn.send();
   });
 
-  xit('json test', async () => {
+  it('json test', async () => {
     const txn = await Mina.transaction(deployerAccount, () => {
       zkAppInstance.jsonTest();
     });

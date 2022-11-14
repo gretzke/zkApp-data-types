@@ -23,14 +23,14 @@ export function parseJSON(json: string) {
     // " { value: '34' }
     // \ { value: '92' }
     public index(at: Field): JSONParser {
-      this.get(Field.zero).assertEquals(Field(91));
+      this.get(Field(0)).assertEquals(Field(91));
       this.get(this.length.sub(1)).assertEquals(Field(93));
-      let index = Field.minusOne;
+      let index = Field(-1);
       let newIndex = Bool(true);
-      let depth = Field.zero;
+      let depth = Field(0);
       let insideString = Bool(false);
-      let start = Field.zero;
-      let end = Field.zero;
+      let start = Field(0);
+      let end = Field(0);
       for (let i = 1; i < this.maxLength() - 1; i++) {
         const val = this.values[i];
         insideString = Circuit.if(
@@ -56,39 +56,39 @@ export function parseJSON(json: string) {
         start = Circuit.if(index.equals(at).and(newIndex), start.add(i), start);
         end = Circuit.if(
           index.equals(at.add(1)).and(newIndex),
-          end.add(i).sub(Field.one),
+          end.add(i).sub(Field(1)),
           end
         );
-        newIndex = val.equals(Field(44)).and(depth.equals(Field.zero));
+        newIndex = val.equals(Field(44)).and(depth.equals(Field(0)));
       }
       start
-        .equals(Field.zero)
-        .and(end.equals(Field.zero))
+        .equals(Field(0))
+        .and(end.equals(Field(0)))
         .assertFalse('Index out of bounds');
-      end = Circuit.if(end.equals(Field.zero), this.length.sub(1), end);
+      end = Circuit.if(end.equals(Field(0)), this.length.sub(1), end);
       return this.slice(start, end);
     }
 
     public key(key: string): JSONParser {
-      this.get(Field.zero).assertEquals(Field(123));
+      this.get(Field(0)).assertEquals(Field(123));
       this.get(this.length.sub(1)).assertEquals(Field(125));
       const keyHash = DynamicArray(Character, this.values.length)
         .from(key.split('').map((c) => Character.fromString(c)))
         .hash();
 
-      let depth = Field.zero;
+      let depth = Field(0);
       let keyFound = Bool(false);
       let insideString = Bool(false);
-      let keyStart = Field.zero;
-      let start = Field.zero;
-      let end = Field.zero;
+      let keyStart = Field(0);
+      let start = Field(0);
+      let end = Field(0);
       for (let i = 1; i < this.maxLength() - 1; i++) {
         const val = this.values[i];
         depth = Circuit.if(
           insideString.not().and(
             val
               .equals(Field(58))
-              .and(depth.equals(Field.zero))
+              .and(depth.equals(Field(0)))
               .or(val.equals(Field(91)).or(val.equals(Field(123))))
           ),
           depth.add(1),
@@ -98,7 +98,7 @@ export function parseJSON(json: string) {
           insideString.not().and(
             val
               .equals(Field(44))
-              .and(depth.equals(Field.one))
+              .and(depth.equals(Field(1)))
               .or(val.equals(Field(93)).or(val.equals(Field(125))))
           ),
           depth.sub(1),
@@ -106,21 +106,26 @@ export function parseJSON(json: string) {
         );
         keyStart = Circuit.if(
           insideString
-            .and(depth.equals(Field.zero))
-            .and(keyStart.equals(Field.zero)),
+            .and(depth.equals(Field(0)))
+            .and(keyStart.equals(Field(0))),
           Field(i),
           keyStart
         );
         const keyEnd = Circuit.if(
-          insideString.and(depth.equals(Field.zero)).and(val.equals(Field(34))),
+          insideString.and(depth.equals(Field(0))).and(val.equals(Field(34))),
           Field(i),
-          Field.zero
+          Field(0)
         );
+        const keyIdentified = keyStart
+          .equals(Field(0))
+          .or(keyEnd.equals(Field(0)))
+          .not();
+
         keyFound = Circuit.if(
-          keyEnd.gt(keyStart),
+          keyIdentified,
           this.slice(
             keyStart,
-            Circuit.if(keyStart.gt(keyEnd), keyStart, keyEnd)
+            Circuit.if(keyIdentified.not(), keyStart, keyEnd)
           )
             .hash()
             .equals(keyHash),
@@ -129,20 +134,24 @@ export function parseJSON(json: string) {
         start = Circuit.if(
           keyFound
             .and(val.equals(Field(58)).not())
-            .and(depth.gt(Field.zero))
-            .and(start.equals(Field.zero)),
+            .and(depth.equals(Field(0)).not())
+            .and(start.equals(Field(0))),
           Field(i),
           start
         );
         end = Circuit.if(
           keyFound
-            .and(depth.equals(Field.zero))
-            .and(start.gt(Field.zero))
-            .and(end.equals(Field.zero)),
+            .and(depth.equals(Field(0)))
+            .and(start.equals(Field(0)).not())
+            .and(end.equals(Field(0))),
           Field(i),
           end
         );
-        keyStart = Circuit.if(keyEnd.gt(Field.zero), Field.zero, keyStart);
+        keyStart = Circuit.if(
+          keyEnd.equals(Field(0)).not(),
+          Field(0),
+          keyStart
+        );
         insideString = Circuit.if(
           val.equals(Field(34)).and(this.values[i - 1].equals(Field(92)).not()),
           insideString.not(),
@@ -150,19 +159,21 @@ export function parseJSON(json: string) {
         );
       }
       start
-        .equals(Field.zero)
-        .and(end.equals(Field.zero))
+        .equals(Field(0))
+        .and(end.equals(Field(0)))
         .assertFalse(`Key "${key}" not found`);
-      end = Circuit.if(end.equals(Field.zero), this.length.sub(1), end);
+      end = Circuit.if(end.equals(Field(0)), this.length.sub(1), end);
       return this.slice(start, end);
     }
 
     public toNumber(): Field {
-      let result = Field.zero;
+      let result = Field(0);
+      let masked = Bool(true);
       for (let i = 0; i < this.maxLength(); i++) {
+        masked = Circuit.if(Field(i).equals(this.length), Bool(false), masked);
         const val = toDigit(this.values[i]);
         result = Circuit.if(
-          Field(i).lt(this.length),
+          masked,
           result.add(
             val.mul(power(Field(10), this.length.sub(Field(i).add(1))))
           ),
@@ -198,20 +209,22 @@ export function parseJSON(json: string) {
 
 function toDigit(c: Character): Field {
   const val = c.toField();
-  val
-    .gte(Field(48))
-    .and(val.lte(Field(57)))
-    .or(val.equals(Field.zero))
-    .assertTrue('Not a digit');
+  // val
+  //   .gte(Field(48))
+  //   .and(val.lte(Field(57)))
+  //   .or(val.equals(Field(0)))
+  //   .assertTrue('Not a digit');
   return val.sub(Field(48));
 }
 
 function power(base: Field, exp: Field): Field {
   const maxPower = 10;
-  exp.assertLte(Field(maxPower), 'exceeds max power');
-  let result = Field.one;
+  // exp.assertLte(Field(maxPower), 'exceeds max power');
+  let result = Field(1);
+  let masked = Bool(true);
   for (let i = 1; i <= maxPower; i++) {
-    result = Circuit.if(exp.gte(Field(i)), result.mul(base), result);
+    masked = Circuit.if(Field(i).equals(exp), Bool(false), masked);
+    result = Circuit.if(masked, result.mul(base), result);
   }
   return result;
 }

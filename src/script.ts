@@ -37,6 +37,10 @@ shutdown();
 
 // JS implementations
 
+// const jsonObject = '{"name":"def","isActive":true,"age":27}';
+
+// key(jsonObject, 'name');
+
 function require(expr: boolean, msg: string) {
   if (!expr) {
     throw new Error(msg);
@@ -104,7 +108,8 @@ function key(str: string, key: string) {
         : depth;
     keyStart = insideString && depth === 0 && keyStart === 0 ? i : keyStart;
     const keyEnd = insideString && depth === 0 && val === '"' ? i : 0;
-    keyFound = keyEnd > 0 ? str.slice(keyStart, keyEnd) === key : keyFound;
+    const keyIdentified = !(keyStart === 0 || keyEnd === 0);
+    keyFound = keyIdentified ? str.slice(keyStart, keyEnd) === key : keyFound;
     start = keyFound && !(val === ':') && depth > 0 && start == 0 ? i : start;
     end = keyFound && depth === 0 && start > 0 && end === 0 ? i : end;
     keyStart = keyEnd > 0 ? 0 : keyStart;

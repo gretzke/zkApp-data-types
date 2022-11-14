@@ -23,7 +23,7 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
   const _type = hashable(type);
   function Null() {
     return type.fromFields(
-      Array(type.sizeInFields()).fill(Field.zero),
+      Array(type.sizeInFields()).fill(Field(0)),
       type.toAuxiliary()
     );
   }
@@ -37,14 +37,14 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
 
     static empty(length?: Field): _DynamicArray {
       const arr = new _DynamicArray();
-      arr.length = length ?? Field.zero;
+      arr.length = length ?? Field(0);
       return arr;
     }
 
     public constructor(values?: T[]) {
       super({
         values: fillWithNull(values ?? [], maxLength),
-        length: values === undefined ? Field.zero : Field(values.length),
+        length: values === undefined ? Field(0) : Field(values.length),
       });
     }
 
@@ -83,12 +83,10 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
     public concat(other: this): this {
       const newArr = other.copy();
       newArr.shiftRight(this.length);
+      let masked = Bool(true);
       for (let i = 0; i < this.maxLength(); i++) {
-        newArr.values[i] = Circuit.if(
-          Field(i).lt(this.length),
-          this.values[i],
-          newArr.values[i]
-        );
+        masked = Circuit.if(Field(i).equals(this.length), Bool(false), masked);
+        newArr.values[i] = Circuit.if(masked, this.values[i], newArr.values[i]);
       }
       return newArr;
     }
@@ -108,27 +106,27 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
     }
 
     public insert(index: Field, value: T): void {
-      const arr1 = this.slice(Field.zero, index);
+      const arr1 = this.slice(Field(0), index);
       const arr2 = this.slice(index, this.length);
       arr2.shiftRight(Field.one);
-      arr2.set(Field.zero, value);
+      arr2.set(Field(0), value);
       const concatArr = arr1.concat(arr2);
       this.values = concatArr.values;
       this.length = concatArr.length;
     }
 
     public assertExists(value: T): void {
-      let result = Field.zero;
+      let result = Field(0);
       for (let i = 0; i < this.maxLength(); i++) {
         result = result.add(
-          Circuit.if(_type.equals(this.values[i], value), Field.one, Field.zero)
+          Circuit.if(_type.equals(this.values[i], value), Field.one, Field(0))
         );
       }
-      result.assertGt(Field.zero);
+      result.equals(Field(0)).assertFalse();
     }
 
     public shiftLeft(n: Field): void {
-      n.assertLt(this.length);
+      n.equals(this.length).assertFalse();
       this.decrementLength(n);
 
       const nullArray = _DynamicArray.empty(n);
@@ -184,37 +182,55 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
     }
 
     public indexMask(index: Field): Bool[] {
-      // assert index < length
-      index.assertLt(this.length);
       const mask = [];
+      let lengthReached = Bool(false);
       for (let i = 0; i < this.maxLength(); i++) {
-        mask[i] = Field(i).equals(index);
+        lengthReached = Field(i).equals(this.length).or(lengthReached);
+        const isIndex = Field(i).equals(index);
+        // assert index < length
+        isIndex.and(lengthReached).not().assertTrue();
+        mask[i] = isIndex;
       }
       return mask;
     }
 
     public incrementLength(n: Field): void {
-      this.length.add(n).assertLte(this.maxLength());
-      this.length = this.length.add(n);
+      const newLength = this.length.add(n);
+      // assert length + n <= maxLength
+      let lengthLteMaxLength = Bool(false);
+      for (let i = 0; i < this.maxLength() + 1; i++) {
+        lengthLteMaxLength = lengthLteMaxLength.or(Field(i).equals(newLength));
+      }
+      lengthLteMaxLength.assertTrue();
+      this.length = newLength;
     }
 
     public decrementLength(n: Field): void {
-      n.assertLte(this.length);
       this.length = this.length.sub(n);
+      // make sure length did not underflow
+      let newLengthFound = Bool(false);
+      for (let i = 0; i < this.maxLength() + 1; i++) {
+        newLengthFound = newLengthFound.or(Field(i).equals(this.length));
+      }
+      newLengthFound.assertTrue();
     }
 
     public lengthMask(n: Field): Bool[] {
       const mask = [];
+      let masked = Bool(true);
       for (let i = 0; i < this.maxLength(); i++) {
-        mask[i] = Field(i).lt(n);
+        masked = Circuit.if(Field(i).equals(n), Bool(false), masked);
+        mask[i] = masked;
       }
       return mask;
     }
 
     public map(fn: (v: T, i: Field) => T): void {
+      let masked = Bool(true);
       for (let i = 0; i < this.values.length; i++) {
+        masked = Circuit.if(Field(i).equals(this.length), Bool(false), masked);
         this.values[i] = Circuit.if(
-          Field(i).lt(this.length),
+          masked,
           fn(this.values[i], Field(i)),
           Null()
         );
