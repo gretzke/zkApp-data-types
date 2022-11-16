@@ -49,6 +49,11 @@ export class DataTypes extends SmartContract {
     arr.hash().assertEquals(newHash);
   }
 
+  @method slice(arr: FieldArray, start: Field, end: Field, newHash: Field) {
+    const newArr = arr.slice(start, end);
+    newArr.hash().assertEquals(newHash);
+  }
+
   @method exists(arr: FieldArray, value: Field) {
     arr.assertExists(value);
   }

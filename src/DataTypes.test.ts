@@ -147,6 +147,23 @@ describe('DataTypes', () => {
     await txn.send();
   });
 
+  it('should be able to slice into the dynamic array', async () => {
+    const values = [0, 1, 2, 3, 4].map((x) => Field(x));
+    const newArray = [1, 2, 3].map((x) => Field(x));
+    const newArrayHash = FieldArray.from(newArray).hash();
+
+    const txn = await Mina.transaction(deployerAccount, () => {
+      zkAppInstance.slice(
+        FieldArray.from(values),
+        Field(1),
+        Field(4),
+        newArrayHash
+      );
+    });
+    await txn.prove();
+    await txn.send();
+  });
+
   it('should be able to assert whether an item exists inside of an array', async () => {
     const values = [0, 1, 2, 3].map((x) => Field(x));
 

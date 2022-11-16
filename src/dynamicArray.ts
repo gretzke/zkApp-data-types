@@ -64,7 +64,7 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
     }
 
     public push(value: T): void {
-      this.incrementLength(Field.one);
+      this.incrementLength(Field(1));
       this.set(this.length.sub(1), value);
     }
 
@@ -108,7 +108,7 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
     public insert(index: Field, value: T): void {
       const arr1 = this.slice(Field(0), index);
       const arr2 = this.slice(index, this.length);
-      arr2.shiftRight(Field.one);
+      arr2.shiftRight(Field(1));
       arr2.set(Field(0), value);
       const concatArr = arr1.concat(arr2);
       this.values = concatArr.values;
@@ -119,7 +119,7 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
       let result = Field(0);
       for (let i = 0; i < this.maxLength(); i++) {
         result = result.add(
-          Circuit.if(_type.equals(this.values[i], value), Field.one, Field(0))
+          Circuit.if(_type.equals(this.values[i], value), Field(1), Field(0))
         );
       }
       result.equals(Field(0)).assertFalse();
