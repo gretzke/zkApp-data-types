@@ -22,7 +22,6 @@ export class DataTypes extends SmartContract {
 
   @method get(arr: FieldArray, index: Field, value: Field) {
     arr.get(index).assertEquals(value);
-    arr.map((x: Field) => x.mul(Field(2)));
   }
 
   @method set(arr: FieldArray, index: Field, value: Field, newHash: Field) {
