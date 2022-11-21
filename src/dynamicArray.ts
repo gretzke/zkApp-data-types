@@ -225,16 +225,22 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
       return mask;
     }
 
-    public map(fn: (v: T, i: Field) => T): void {
+    public map(fn: (v: T, i: Field) => T): this {
+      const newArr = this.copy();
       let masked = Bool(true);
-      for (let i = 0; i < this.values.length; i++) {
-        masked = Circuit.if(Field(i).equals(this.length), Bool(false), masked);
-        this.values[i] = Circuit.if(
+      for (let i = 0; i < newArr.values.length; i++) {
+        masked = Circuit.if(
+          Field(i).equals(newArr.length),
+          Bool(false),
+          masked
+        );
+        newArr.values[i] = Circuit.if(
           masked,
-          fn(this.values[i], Field(i)),
+          fn(newArr.values[i], Field(i)),
           Null()
         );
       }
+      return newArr;
     }
   };
 
