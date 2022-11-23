@@ -55,7 +55,7 @@ export class DataTypes extends SmartContract {
   }
 
   @method exists(arr: FieldArray, value: Field) {
-    arr.assertExists(value);
+    arr.assertIncludes(value);
   }
 
   @method jsonTest() {

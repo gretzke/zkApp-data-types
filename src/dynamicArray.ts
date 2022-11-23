@@ -115,14 +115,18 @@ function DynamicArray<T>(type: Provable<T>, maxLength: number) {
       this.length = concatArr.length;
     }
 
-    public assertExists(value: T): void {
+    public includes(value: T): Bool {
       let result = Field(0);
       for (let i = 0; i < this.maxLength(); i++) {
         result = result.add(
           Circuit.if(_type.equals(this.values[i], value), Field(1), Field(0))
         );
       }
-      result.equals(Field(0)).assertFalse();
+      return result.equals(Field(0)).not();
+    }
+
+    public assertIncludes(value: T): void {
+      this.includes(value).assertTrue();
     }
 
     public shiftLeft(n: Field): void {
